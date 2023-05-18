@@ -1,11 +1,11 @@
 # **A Quantile Shift Approach To Main Effects And Interactions In A 2-By-2 Design**
-Rand R. Wilcox & Guillaume A. Rousselet
-(submitted)
-Preprint = <URL>
+Rand R. Wilcox & Guillaume A. Rousselet  
+(submitted)  
+Preprint = <URL>  
 
 Code to reproduce the figures, analyses and simulations in the article.
 The data, knitted notebooks and figures in pdf format are available here:
-<figshare_URL>
+DOI: 10.6084/m9.figshare.22927520
 
 The main functions are illustrated in the notebook `examples.Rmd`. 
 
