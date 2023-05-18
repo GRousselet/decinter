@@ -1,0 +1,527 @@
+---
+title: "Main effects and interactions at all deciles: examples"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+---
+
+Illustrate simulated examples similar to the ones used in the power simulations. Generate samples at maximum sample size (n=100). Plot marginals, separate shift functions at each level of A, shift functions for main effects and interaction, distributions of all pairwise differences, their quantiles, and their quantile differences (interaction).
+
+Illustrate one example with real data from [Clark et al. (2011)](https://jech.bmj.com/content/66/9/782.long).
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(cowplot)
+source("./code/theme_gar.txt")
+source("./code/examples.R") # wrapper + plot functions
+source("./code/mainfuns.R")
+source("./code/decinter.R")
+source("./code/iband.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/dec_apd_all.cpp")
+```
+
+# Parameters
+
+```{r}
+nboot <- 2000 # bootstrap samples
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+probs <- c(alpha.val/2, 1-alpha.val/2) # to compute confidence intervals
+n <- 100 # sample size
+
+### Plot parameters
+plot_param <- list()
+# vertical bars for uncertainty intervals
+plot_param$diffint_col <- "black"
+plot_param$diffint_size <- 0.75 
+plot_param$diffint_col50 <- "black"
+plot_param$diffint_size50 <- 2.5 
+# line joining the quantiles
+plot_param$q_line_col <- "black"
+plot_param$q_line_alpha <- 1
+plot_param$q_line_size <- 2
+# symbols marking the quantiles
+plot_param$symb_col <- "black" 
+plot_param$symb_size <- 5
+plot_param$symb_shape <- 21
+plot_param$symb_fill <- "lightgrey" 
+```
+
+# Distributions that differ by a constant
+
+The code below can be used to generate data similar to what we used in the simulations in notebooks `sim_tp.Rmd` and `sim_tp_apd.Rmd`. Sampling is from one of four continuous distributions, with groups shifted by a constant.  
+
+## Generate data
+
+```{r}
+set.seed(21)
+
+todo <- 1 # [1] norm | [2] cnorm | [3] lnorm | [4] clnorm
+
+if(todo == 1){
+  # normal
+  rdist <- rnorm
+  rdist.name <- "norm"
+  gpmeans <- c(0, 0.1, 0.2, 0.8)
+  # gpmeans <- c(0, 0.5, 0.3, 1.2)
+} else if(todo == 2){
+  # contaminated normal
+  rdist <- cnorm
+  rdist.name <- "cnorm"
+  gpmeans <- c(0, 0.1, 0.2, 0.8)
+} else if(todo == 3){
+  # lognormal
+  rdist <- rlnorm
+  rdist.name <- "lnorm"
+  gpmeans <- c(0, 0, 0.1, 0.5)
+} else if(todo == 4){
+  # contaminated lognormal
+  rdist <- clnorm
+  rdist.name <- "clnorm"
+  gpmeans <- c(0, 0, 0.1, 0.5)
+}
+
+x <- list()
+for(C in 1:4){
+  x[[C]] <- rdist(n) + rep(gpmeans[C], n)
+}
+# x <- matrix(data = rdist(n*4), nrow = n) + matrix(data = rep(gpmeans, each = n), nrow = n)
+```
+
+## Compute deciles and all comparisons
+
+Compute confidence intervals and p values for all simple effects, main effects and interactions.
+
+```{r}
+set.seed(21)
+res <- dec_apd_all_wrap(x, nboot, probs)
+# this function is the file examples.R
+```
+
+## Plot marginal distributions
+
+```{r}
+set.seed(21)
+pA <- plot_marg(x, res, col = "black")
+pA
+```
+
+## Plot shift functions at each level of A
+
+### A1: B1-B2
+
+```{r}
+pB <- plot_ind_sf_ab(res, plot_param)
+pB
+```
+
+Thick vertical lines = 50% confidence intervals.  
+Thin vertical lines = 1-alpha confidence intervals.  
+
+Check p values
+```{r}
+res$ab.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$ab.pv, method = "fdr")
+```
+
+
+### A2: B1-B2
+
+```{r}
+pC <- plot_ind_sf_cd(res, plot_param)
+pC
+```
+
+Check p values
+```{r}
+res$cd.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$cd.pv, method = "fdr")
+```
+
+## Plot main effects and interaction
+
+### Main effect of A
+
+```{r}
+# x axis: plot mean of quantiles 
+# plotx == "mean" 
+# or quantiles of observations pooled across 2 levels
+# plotx == "pool"
+pD <- plot_main_A(res, plot_param, plotx = "pool")
+pD
+```
+
+Check p values
+```{r}
+res$mainA.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$mainA.pv, method = "fdr")
+```
+
+### Main effect of B
+
+```{r}
+pE <- plot_main_B(res, plot_param, plotx = "pool")
+pE
+```
+
+Check p values
+```{r}
+res$mainB.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$mainB.pv, method = "fdr")
+```
+
+### Interaction
+
+```{r}
+pF <- plot_inter(res, plot_param, plotx = "pool")
+pF
+```
+
+Check p values
+```{r}
+res$inter.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$inter.pv, method = "fdr")
+```
+
+## Plot all pairwise differences + deciles
+
+```{r}
+set.seed(21)
+pG <- plot_apd(res)
+pG
+```
+
+## All pairwise differences: interaction
+
+```{r}
+pH <- plot_apd_inter(res, plot_param)
+pH
+```
+
+Check p values
+```{r}
+res$apd.ab.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$apd.ab.pv, method = "fdr")
+```
+
+## Figure with combined panels
+
+```{r, eval=FALSE}
+cowplot::plot_grid(pA, pB, pC, pD, pE, pF, pG, pH,
+                   labels=c("A", "B", "C", "D", "E", "F", "G", "H"), ncol = 2, nrow = 4,
+                   rel_heights = c(1, 1, 1, 1, 1, 1, 1, 1), label_size = 20, hjust = -0.5, scale=.95)
+# save figure
+ggsave(filename=paste0('./figures/fig_ex_',rdist.name,'.pdf'),width=12,height=15) 
+```
+
+# Example with real data
+
+Data are from:
+
+[Clark et al. (2011)](https://jech.bmj.com/content/66/9/782.long)
+
+Clark, F., Jackson, J., Carlson, M., Chou, C.-P., Cherry, B.J., Jordan-Marsh, M., Knight, B.G., Mandel, D., Blanchard, J., Granger, D.A., Wilcox, R.R., Lai, M.Y., White, B., Hay, J., Lam, C., Marterella, A., & Azen, S.P. (2012) Effectiveness of a lifestyle intervention in promoting the well-being of independently living older people: results of the Well Elderly 2 Randomised Controlled Trial. J Epidemiol Community Health, 66, 782–790.
+
+We look at perceived health in older adults, split into 4 groups based on education level and the presence of depressive symptoms.
+
+## Load data
+
+```{r}
+dat <- read.table('./data/A1B1C_dat.txt') # todo
+# d <- cbind(dat$MAPAGLOB, dat$edugp, dat$BK_SEX)
+x <- cbind(dat$pfnbs_s, dat$edugp, dat$CESD)
+x <- elimna(x) # remove missing values
+# split into groups based on education and CESD score
+flag <- x[,3] > 15 
+a <- fac2list(x[,1], cbind(x[,2],flag), pr = FALSE) # 
+a <- a[c(1,2,5,6)]
+# A1B1 = lower education, lower CESD, 
+# A1B2 = lower education, higher CESD, 
+# A2B1 = higher education, lower CESD, 
+# A2B2 = higher education, higher CESD. 
+```
+
+## ANOVA on means
+
+### Using t2way
+```{r}
+t2w.res <- t2way(2,2,a,tr=0)
+t2w.res
+```
+
+### Using aov
+```{r}
+df <- tibble(health = as.vector(unlist(a)),
+             education = factor(c(rep("lower", length(a[[1]]) + length(a[[2]])), rep("higher", length(a[[3]]) + length(a[[4]])))),
+             depression = factor(c(rep("lower", length(a[[1]])), rep("higher", length(a[[2]])), 
+                                   rep("lower", length(a[[3]])), rep("higher", length(a[[4]]))))
+             )
+aov.res <- aov(health ~ education * depression, data = df)
+summary(aov.res)
+```
+
+## Apply method 1
+
+### Apply function
+```{r, eval=FALSE}
+set.seed(21)
+# use Hochberg's correction
+res1 <- decinter(a, method='hoch', SEED=FALSE, nboot=nboot) #default is 'BH'
+save(res1, file = "./data/examples_res1.RData")
+```
+
+### Check results
+```{r}
+load(file = "./data/examples_res1.RData")
+res1
+```
+
+### Use FDR correction
+```{r}
+p.adjust(res1[,7], method="fdr")
+```
+
+## Apply method 2
+
+```{r, eval=FALSE}
+set.seed(21)
+# use Hochberg's correction
+res2 <- iband(a, method='hoch', SEED=FALSE, nboot=nboot) #default is 'BH'
+save(res2, file = "./data/examples_res2.RData")
+```
+
+### Check results
+```{r}
+load(file = "./data/examples_res2.RData")
+res2
+```
+
+### Use FDR correction
+```{r}
+p.adjust(res2[,7], method="fdr")
+```
+
+## Compute deciles and all comparisons
+
+Compute confidence intervals and p values for all simples effects, main effects and interaction. The main calculations are handled by an Rcpp function, which is much faster than the code in base R.
+
+```{r}
+set.seed(21)
+res <- dec_apd_all_wrap(a, nboot, probs)
+```
+
+## Make figures
+
+### Plot marginal distributions
+
+```{r}
+set.seed(21)
+pA <- plot_marg(a, res, col = "black") + coord_cartesian(ylim = c(0, 65))
+pA
+```
+
+### Plot shift functions at each level of A
+
+#### A1: B1-B2
+
+```{r}
+pB <- plot_ind_sf_ab(res, plot_param)
+pB
+```
+
+Thick vertical lines = 50% confidence intervals.  
+Thin vertical lines = 1-alpha confidence intervals.  
+Check p values
+```{r}
+res$ab.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$ab.pv, method = "fdr")
+```
+
+#### A2: B1-B2
+
+```{r}
+pC <- plot_ind_sf_cd(res, plot_param)
+pC
+```
+
+Check p values
+```{r}
+res$cd.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$cd.pv, method = "fdr")
+```
+
+### Plot main effects and interaction
+
+#### Main effect of A
+
+```{r}
+# x axis: plot mean of quantiles 
+# plotx == "mean" 
+# or quantiles of observations pooled across 2 levels
+# plotx == "pool"
+pD <- plot_main_A(res, plot_param, plotx = "pool")
+pD
+```
+
+Check p values
+```{r}
+res$mainA.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$mainA.pv, method = "fdr")
+```
+
+#### Main effect of B
+
+```{r}
+pE <- plot_main_B(res, plot_param, plotx = "pool")
+pE
+```
+
+Check p values
+```{r}
+res$mainB.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$mainB.pv, method = "fdr")
+```
+
+#### Interaction
+
+```{r}
+pF <- plot_inter(res, plot_param, plotx = "pool")
+pF
+```
+
+Check p values
+```{r}
+res$inter.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$inter.pv, method = "fdr")
+```
+
+### Plot all pairwise differences + deciles
+
+```{r}
+set.seed(21)
+pG <- plot_apd(res)
+pG
+```
+
+### Inferences on the median of the difference scores
+
+"For the second group, testing the hypothesis that the median of the difference scores is zero, the estimate is 10.5, with a [4.2, 14.7] 95% confidence interval, $p=0$. In the first group the median is 4.21 [0, 8.4], $p=0.0765$."
+
+#### Group 1
+```{r}
+set.seed(44)
+wmwpb(a[[1]],a[[2]],est=median,alpha=.05,nboot=2000,SEED=FALSE,pr=FALSE)
+```
+
+#### Group 2
+```{r}
+set.seed(44)
+wmwpb(a[[3]],a[[4]],est=median,alpha=.05,nboot=2000,SEED=FALSE,pr=FALSE)
+```
+
+### All pairwise differences: interaction
+
+```{r}
+pH <- plot_apd_inter(res, plot_param)
+pH
+```
+
+Check p values
+```{r}
+res$apd.inter.pv
+```
+
+P values corrected for multiple comparisons
+```{r}
+p.adjust(res$apd.inter.pv, method = "fdr")
+```
+
+### Figures with combined panels
+
+#### One large figure
+```{r, eval=FALSE}
+cowplot::plot_grid(pA, pB, pC, pD, pE, pF, pG, pH,
+                   labels=c("A", "B", "C", "D", "E", "F", "G", "H"), ncol = 2, nrow = 4,
+                   rel_heights = c(1, 1, 1, 1, 1, 1, 1, 1), label_size = 20, hjust = -0.5, scale=.95)
+# save figure
+ggsave(filename=paste0('./figures/fig_ex_A1B1C.pdf'),width=12,height=15) 
+```
+
+### Split decinter and apdinter results
+
+#### Results: decinter
+```{r, eval=FALSE, fig.height = 8}
+cowplot::plot_grid(pA, pB, pC, pD, pE, pF,
+                   labels=c("A", "B", "C", "D", "E", "F"), ncol = 2, nrow = 3,
+                   rel_heights = c(1, 1, 1, 1, 1, 1, 1, 1), label_size = 20, hjust = -0.5, scale=.95)
+# save figure
+ggsave(filename=paste0('./figures/fig_ex_A1B1C_dec.pdf'),width=12,height=12) 
+```
+
+#### Results: apdinter (iband)
+```{r, eval=FALSE}
+cowplot::plot_grid(pG, pH,
+                   labels=c("A", "B"), ncol = 2, nrow = 1,
+                   rel_heights = c(1, 1, 1, 1, 1, 1, 1, 1), label_size = 20, hjust = -0.5, scale=.95)
+# save figure
+ggsave(filename=paste0('./figures/fig_ex_A1B1C_apd.pdf'),width=12,height=4) 
+```
+
+
+
+

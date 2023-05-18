@@ -1,0 +1,556 @@
+---
+title: "Quantile differences between distributions of all pairwise differences: false positives"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Strategy: for each level of A, compute all pairwise differences between B1 and B2. Then compare the quantiles (here deciles) of these two distributions. 
+
+Estimate FWER = probability of at least one false negative among 9 deciles.
+Use percentile bootstrap only and boot1 method = use the same bootstrap samples for all deciles. 
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(beepr)
+library(cowplot)
+source("./code/theme_gar.txt")
+source("./code/mainfuns.R")
+source("./code/plot.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/apdinter_hdqt7.cpp")
+```
+
+# Parameters
+
+```{r}
+nsim <- 10000 # iterations
+nboot <- 2000 # bootstrap samples
+inc.step <- 500 # beep every inc.step iterations
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+ref.fp <- 1-(1-alpha.val)^nq # FWER for uncorrelated comparisons
+nseq <- seq(20, 100, 10) # sample sizes
+nmax <- max(nseq) # max sample size
+nn <- length(nseq) # number of sample sizes
+# Parameters for distributions with tied values
+# beta-binomial parameters
+nbin <- 10 # integers 0, 1,..., 10
+# r <- 9 # Wilcox et al. (2014) used 1, 2, 3, and 9
+s <- 9 # With r = s = 9 the distribution is bell-shaped and symmetric with mean 5.
+# with s=9, r=1, the distribution is heavily positively skewed.
+```
+
+# Normal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+simres <- apdinter_sim(rdist)
+save(simres, file = "./data/sim_fp_apd_pval_normal.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_normal.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_normal.RData")
+plot.title <- "Normal"
+p <- plot_fp_apd_fwer(fwer, plot.title) 
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_normal.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_norm <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_normal.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p 
+p_ind_norm <- p
+#ggsave(filename = "./figures/fig_fp_apd_ind_normal.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_normal.pdf", width = 8, height = 8)
+```
+
+# Lognormal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rlnorm
+simres <- apdinter_sim(rdist)
+save(simres, file = "./data/sim_fp_apd_pval_lognormal.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_lognormal.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_lognormal.RData")
+plot.title <- "Lognormal"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_lognormal.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_lnorm <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_lognormal.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_lognormal.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_lognormal.pdf", width = 8, height = 8)
+```
+
+# Contaminated normal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- cnorm
+simres <- apdinter_sim(rdist)
+save(simres, file = "./data/sim_fp_apd_pval_cnorm.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_cnorm.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_cnorm.RData")
+plot.title <- "Contaminated normal"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_cnorm.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_cnorm <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_cnorm.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_cnorm.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_cnorm.pdf", width = 8, height = 8)
+```
+
+# Contaminated lognormal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- clnorm
+simres <- apdinter_sim(rdist)
+save(simres, file = "./data/sim_fp_apd_pval_clnorm.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_clnorm.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_clnorm.RData")
+plot.title <- "Contaminated lognormal"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_clnorm.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_clnorm <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_clnorm.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+p_ind_clnorm <- p
+#ggsave(filename = "./figures/fig_fp_apd_ind_clnorm.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_clnorm.pdf", width = 8, height = 8)
+```
+
+# Poisson distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+lambda_fp <- c(9,9,9,9) # Poisson population -- false positives
+simres <- apdinter_pois_sim(lambda_fp, qseq)
+save(simres, file = "./data/sim_fp_apd_pval_pois.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_pois.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_pois.RData")
+plot.title <- "Poisson"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_pois.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_pois <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_pois.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+p_ind_pois <- p
+#ggsave(filename = "./figures/fig_fp_apd_ind_pois.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_pois.pdf", width = 8, height = 8)
+```
+
+# Beta-binomial distributions: r=1
+
+```{r, eval=FALSE}
+set.seed(21)
+rseq_fp <- c(1,1,1,1)
+simres <- apdinter_bb_sim(rseq=rseq_fp, s=s, nbin=nbin, qseq, nseq)
+save(simres, file = "./data/sim_fp_apd_pval_bbr1.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_bbr1.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_bbr1.RData")
+plot.title <- "Beta-binomial (r=1)"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_bbr1.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_bbr1.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+p_ind_bbr1 <- p
+#ggsave(filename = "./figures/fig_fp_apd_ind_bbr1.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_bbr1.pdf", width = 8, height = 8)
+```
+
+# Beta-binomial distributions: r=9
+
+```{r, eval=FALSE}
+set.seed(21)
+rseq_fp <- c(9,9,9,9)
+simres <- apdinter_bb_sim(rseq=rseq_fp, s=s, nbin=nbin, qseq, nseq)
+save(simres, file = "./data/sim_fp_apd_pval_bbr9.RData")
+fwer <- apdinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_bbr9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_bbr9.RData")
+plot.title <- "Beta-binomial (r=9)"
+p <- plot_fp_apd_fwer(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_bbr9.pdf", width = 8, height = 10)
+```
+
+## Results: FWER - FDR only
+```{r}
+p <- plot_fp_apd_fwer_fdr(fwer, plot.title) 
+p
+p_fdr_bbr9 <- p
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=4, fig.width=8}
+load(file = "./data/sim_fp_apd_pval_bbr9.RData")
+p <- plot_fp_apd_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_bbr9.pdf", width = 8, height = 4)
+```
+
+### Plot by sample size
+```{r, fig.height=8, fig.width=8}
+p <- plot_fp_apd_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_bbr9.pdf", width = 8, height = 8)
+```
+
+# Conclusion
+
+FWER is lower than the nominal level in all situations. Type I error rate is close to the expected level at individual quantiles, particularly for central quantiles and n>20. HD and QT7 perform similarly for continuous distributions. When sampling from distributions with tied values, HD is much closer to the nominal level than QT7. FDR outperforms Hochberg in all situations.
+Recommend to use HD + FDR by default.  
+
+# Make figures for article
+
+## FWER + FDR
+
+Use all distributions except beta-binomial with r = 1. So we have 6 sets of results that can fit in a 3 x 2 figure.
+
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+pAB <- cowplot::plot_grid(p_fdr_norm + theme(legend.position='none'), 
+                          p_fdr_lnorm + theme(legend.position='none'),
+                          p_fdr_cnorm + theme(legend.position='none'), 
+                          p_fdr_clnorm + theme(legend.position='none'),
+                          p_fdr_pois + theme(legend.position='none'), 
+                          p_fdr_bbr9 + theme(legend.position='none'),
+                          labels=c("A", "B", "C", "D", "E", "F"), 
+                          ncol = 2, 
+                          nrow = 3,
+                          rel_heights = c(1, 1, 1, 1, 1, 1), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h")
+
+pAB <- cowplot::plot_grid(pAB, legend,
+                          labels=c("", ""), 
+                          ncol = 1, 
+                          nrow = 2,
+                          rel_heights = c(1, 0.05), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h") 
+
+pAB
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_apd.pdf',width=10,height=12) 
+```
+
+## Results at individual deciles: normal + contamined lognormal
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_ind_norm)
+
+cowplot::plot_grid(p_ind_norm + theme(legend.position='none'), 
+                   legend,
+                   p_ind_clnorm + theme(legend.position='none'),
+                   NULL,
+                   labels=c("A", "", "B", ""), 
+                   ncol = 2, 
+                   nrow = 2,
+                   rel_widths = c(1, 0.3), 
+                   label_size = 20, 
+                   hjust = -0.5, 
+                   scale = 1,
+                   align = "h")
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_apd_ind_norm_clnorm.pdf',width=9,height=7) 
+```
+
+## Results at individual deciles: Poisson + beta-binomial (r=1)
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_ind_norm)
+
+cowplot::plot_grid(p_ind_pois + theme(legend.position='none'),
+                   legend,
+                   p_ind_bbr1 + theme(legend.position='none'),
+                   NULL,
+                   labels=c("A", "", "B", ""), 
+                   ncol = 2, 
+                   nrow = 2,
+                   rel_widths = c(1, 0.3), 
+                   label_size = 20, 
+                   hjust = -0.5, 
+                   scale = 1,
+                   align = "h")
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_apd_ind_pois_bbr1.pdf',width=9,height=7) 
+```

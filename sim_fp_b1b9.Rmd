@@ -1,0 +1,130 @@
+---
+title: "Test main effects and interactions: false positives, boot1 vs. boot9"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Estimate FWER = probability of at least one false negative among 9 deciles.
+Use HD only; compare bootstrap with the same samples for all deciles vs. different samples. 
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(beepr)
+source("./code/theme_gar.txt")
+source("./code/mainfuns.R")
+source("./code/plot.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/decinter_b1b9.cpp")
+```
+
+# Parameters
+
+```{r}
+nsim <- 10000 # iterations
+nboot <- 2000 # bootstrap samples
+inc.step <- 500 # beep every inc.step iterations
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+ref.fp <- 1-(1-alpha.val)^nq # FWER for uncorrelated comparisons
+nseq <- seq(20, 100, 10) # sample sizes
+nmax <- max(nseq) # max sample size
+nn <- length(nseq) # number of sample sizes
+```
+
+# Normal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+simres <- decinter_b1b9_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_normal_b1b9.RData")
+fwer <- decinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_normal_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_fwer_normal_b1b9.RData")
+plot.title <- "Normal"
+p <- plot_fp_fwer_fdr_b1b9(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_normal_b1b9.pdf", width = 8, height = 10)
+```
+
+# Lognormal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rlnorm
+simres <- decinter_b1b9_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_lognormal_b1b9.RData")
+fwer <- decinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_lognormal_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_fwer_lognormal_b1b9.RData")
+plot.title <- "Lognormal"
+p <- plot_fp_fwer_fdr_b1b9(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_lognormal_b1b9.pdf", width = 8, height = 10)
+```
+
+# Contaminated normal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- cnorm
+simres <- decinter_b1b9_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_cnorm_b1b9.RData")
+fwer <- decinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_cnorm_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_fwer_cnorm_b1b9.RData")
+plot.title <- "Contaminated normal"
+p <- plot_fp_fwer_fdr_b1b9(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_cnorm_b1b9.pdf", width = 8, height = 10)
+```
+
+# Contaminated lognormal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- clnorm
+simres <- decinter_b1b9_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_clnorm_b1b9.RData")
+fwer <- decinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_clnorm_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_fwer_clnorm_b1b9.RData")
+plot.title <- "Contaminated lognormal"
+p <- plot_fp_fwer_fdr_b1b9(fwer, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_clnorm_b1b9.pdf", width = 8, height = 10)
+```
+
+# Conclusion
+No evidence for better performance using separate bootstrap samples for every decile.
+Keep using the same bootstrap samples for all deciles for computational efficiency.
+Overall the approach is conservative, with FWER below the nominal level at all sample sizes, for all distributions, and for main effects and interaction.
+

@@ -1,0 +1,82 @@
+---
+title: "Kurtosis estimation"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Code supporting this statement:
+
+"Consider, for example, a lognormal distribution, which has kurtosis 113.9.
+Based on a sample of 100,000, the kurtosis of the lognormal distribution was
+estimated and this process was repeated 1000 times. It was found that 79\% of the estimates were less than the true value.
+The median estimate was 80. This process was repeated using the contaminated lognormal distribution which is skewed and very heavy-tailed. The kurtosis of this distribution was estimated based on a sample size of one million. This process was
+repeated 1000 times yielding estimates ranging between 242 and 16400.
+The median estimate was 423."
+
+# Dependencies
+```{r, message=FALSE, warning=FALSE}
+source("./code/mainfuns.R")
+```
+
+# Lognormal simulation
+
+## Get population kurtosis
+
+A *g-and-h* distribution with parameters $g=$1 and $h=$0 has the same shape as a lognormal distribution.
+```{r}
+lnorm_kurt <- gskew(1)$kurtosis
+```
+
+The lognormal distribution has kurtosis = `r round(lnorm_kurt, digits = 1)`.
+
+## Simulation
+```{r, eval=FALSE}
+set.seed(21)
+
+nsim <- 1000 # number of iterations
+nsamp <- 100000 # sample size
+sim_lnorm <- vector(mode = "numeric", length = nsim)
+
+for(i in 1:nsim){
+  sim_lnorm[i] <- skew(rlnorm(nsamp))$kurtosis
+}
+save(sim_lnorm, file='./data/sim_lnorm.Rdata')
+```
+
+## Results 
+```{r}
+load(file='./data/sim_lnorm.Rdata')
+summary(sim_lnorm)
+```
+
+The proportion of estimates less than the true value is `r 100 * mean(sim_lnorm < lnorm_kurt)`%.
+
+# Contaminated lognormal simulation
+
+```{r, eval=FALSE}
+set.seed(21)
+
+nsim <- 1000 # number of iterations
+nsamp <- 1000000 # sample size
+sim_clnorm <- vector(mode = "numeric", length = nsim)
+
+for(i in 1:nsim){
+  sim_clnorm[i] <- skew(clnorm(nsamp))$kurtosis
+}
+
+save(sim_clnorm, file='./data/sim_clnorm.Rdata')
+```
+
+## Results
+```{r}
+load(file='./data/sim_clnorm.Rdata')
+summary(sim_clnorm)
+```
+

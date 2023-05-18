@@ -1,0 +1,57 @@
+---
+title: "Quantile differences between distributions of all pairwise differences: example"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Code supporting this statement:
+
+"To illustrate this point, consider, for example, a situation where for the first level of the first factor, both levels of the second factor have standard normal normal distributions, while for the second level of the first factor, the two levels of the second factor
+have lognormal distributions. Data were generated as just described based on sample sizes of 50. The estimate of $q_1-q_2$ was .027.
+But interchanging the rows and columns, now the estimate was $-.088$."
+
+# Dependencies
+```{r, message=FALSE, warning=FALSE}
+source("./code/mainfuns.R")
+```
+
+# Make data
+```{r}
+set.seed(2)
+n <- 50
+x11 <- rnorm(n)
+x12 <- rnorm(n)
+x21 <- rlnorm(n)
+x22 <- rlnorm(n)
+```
+
+# Compute contrasts for 50th quantile
+
+## First factor
+
+```{r}
+# 50th quantile of D for level 1 of the first factor 
+q1 <- hd(outer(x11,x12,FUN='-'))
+# 50th quantile of D for level 2 of the first factor
+q2 <- hd(outer(x21,x22,FUN='-'))
+```
+
+Estimate of $q_1 - q_2 = $ `r round(q1-q2, digits=3)`.
+
+## Second factor (exchange rows and columns)
+```{r}
+# 50th quantile of D for level 1 of the second factor 
+q1 <- hd(outer(x11,x21,FUN='-'))
+# 50th quantile of D for level 2 of the second factor
+q2 <- hd(outer(x12,x22,FUN='-'))
+```
+
+Now the estimate of $q_1 - q_2 = $ `r round(q1-q2, digits=3)`.
+

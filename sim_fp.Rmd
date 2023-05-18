@@ -1,0 +1,630 @@
+---
+title: "Test main effects and interactions at all deciles: false positives"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Estimate FWER = probability of at least one false negative among 9 deciles.
+Use a percentile bootstrap approach as in Wilcox et al. (2014), but with the same samples for all deciles. 
+Check whether using separate bootstrap samples for every decile improves coverage in `sim_fp_b1b9.Rmd`.
+Compare HD (Harrell & Davis, 1982) to quantile(type=7), the default in R (Hyndman & Fan, 1996; Wicklin, 2017).
+Compare two methods to correct for multiple comparisons: Hochberg (1988), as used in Wilcox et al. (2014) and FDR (Benjamini & Hochberg, 1995).
+Compare to standard ANOVA on means and 20% trimmed means (no bootstrap, see chapter 7 in Wilcox, 2017).
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(cowplot)
+library(beepr)
+source("./code/theme_gar.txt")
+source("./code/mainfuns.R")
+source("./code/plot.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/decinter_hdqt7.cpp")
+```
+
+# Parameters
+
+```{r}
+nsim <- 10000 # iterations
+nboot <- 2000 # bootstrap samples
+inc.step <- 500 # console update every inc.step iterations
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+ref.fp <- 1-(1-alpha.val)^nq # FWER for uncorrelated comparisons
+nseq <- seq(20, 100, 10) # sample sizes
+nmax <- max(nseq) # max sample size
+nn <- length(nseq) # number of sample sizes
+# Parameters for distributions with tied values
+# Poisson parameters
+lambda_fp <- c(9,9,9,9) # Poisson population -- false positives
+# beta-binomial parameters
+nbin <- 10 # integers 0, 1,..., 10
+# r <- 9 # Wilcox et al. (2014) used 1, 2, 3, and 9
+s <- 9 # With r = s = 9 the distribution is bell-shaped and symmetric with mean 5.
+# with s=9, r=1, the distribution is heavily positively skewed.
+```
+
+# Normal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+simres <- decinter_fp_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_normal.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_normal.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7}
+load(file = "./data/sim_fp_pval_normal.RData")
+load(file = "./data/sim_fp_fwer_normal.RData")
+plot.title <- "Normal"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_normal.pdf", width = 8, height = 10)
+```
+
+Horizontal ribbons: dark grey = Bradley's (1978) satisfactory range [0.025; 0.075]; light grey = Bradley's (1978) ideal range [0.045; 0.055]. 
+
+FDR and Hochberg are too conservative, but FDR is closer to nominal level than Hochberg at all sample sizes.
+
+Sanity check: both types of ANOVAs have type I error rates very near 0.05 at all sample sizes. 
+
+HD and QT7 are too conservative, but HD is closer to nominal level than QT7 at all sample sizes, which is easier to appreciate in the next figure.
+
+## Results: FWER - FDR only
+```{r, fig.height=7}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+p_fdr_norm <- p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_normal.pdf", width = 8, height = 10)
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+p_ind_norm <- p
+#ggsave(filename = "./figures/fig_fp_ind_normal.pdf", width = 8, height = 10)
+```
+
+HD and QT7 are too conservative at all quantiles and sample sizes, except for HD at $q_{0.1}$ and $q_{0.9}$, which is too liberal for n=20, and very near 0.05 for n=30. 
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_normal.pdf", width = 8, height = 10)
+```
+
+Except for n=20 for HD, coverage is fairly stable across quantiles and HD dominates QT7.  
+
+# Lognormal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rlnorm
+simres <- decinter_fp_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_lognormal.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_lognormal.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_lognormal.RData")
+load(file = "./data/sim_fp_fwer_lognormal.RData")
+plot.title <- "Lognormal"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_lognormal.pdf", width = 8, height = 10)
+```
+
+Similar results to normal: quantile methods are too conservative but better performance is obtained using HD + FDR.  
+The two types of ANOVAs are a bit conservative, especially for n=20 and n=30.
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+p_fdr_lnorm <- p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_lognormal.pdf", width = 8, height = 10)
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_lognormal.pdf", width = 8, height = 10)
+```
+
+The last decile $q_{0.9}$ is noisier for HD. HD closer to nominal level than QT7. Stable performance from n=40.
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_lognormal.pdf", width = 8, height = 10)
+```
+
+Both methods are conservative across quantiles, and FWER is lower towards the right tail of the distribution. HD dominates QT7.
+
+# Contaminated normal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- cnorm
+simres <- decinter_fp_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_cnorm.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_cnorm.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_cnorm.RData")
+load(file = "./data/sim_fp_fwer_cnorm.RData")
+plot.title <- "Contaminated normal"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_cnorm.pdf", width = 8, height = 10)
+```
+FDR > Hochberg -- very small differences. 
+HD > QT7.
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title) + scale_y_continuous(limits = c(0,0.24))
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_cnorm.pdf", width = 8, height = 10)
+```
+Again, both estimators lead to conservative inferences except for n=20 and n=30. Strange case in which increasing n leads to worse performance.
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_cnorm.pdf", width = 8, height = 10)
+```
+
+The behaviour described in the previous chunk is explained here: for n=20, type I error rate is too high for the extreme deciles. We need at least n=40 to make inference about the first and last deciles.
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_cnorm.pdf", width = 8, height = 10)
+```
+Coverage deteriorates towards the tails and with lower sample sizes.
+
+# Contaminated lognormal distributions: interaction + main effects
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- clnorm
+simres <- decinter_fp_sim(rdist)
+save(simres, file = "./data/sim_fp_pval_clnorm.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_clnorm.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_clnorm.RData")
+load(file = "./data/sim_fp_fwer_clnorm.RData")
+plot.title <- "Contaminated lognormal"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_clnorm.pdf", width = 8, height = 10)
+```
+
+FDR > Hochberg, again too conservative.
+HD > QT7.
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_clnorm.pdf", width = 8, height = 10)
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`] 
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_clnorm.pdf", width = 8, height = 10)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_clnorm.pdf", width = 8, height = 10)
+```
+
+Coverage deteriorates towards right tail and with lower sample sizes.
+
+# Poisson distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+simres <- decinter_pois_sim(lambda_fp, qseq)
+save(simres, file = "./data/sim_fp_pval_pois.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_pois.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_pois.RData")
+load(file = "./data/sim_fp_fwer_pois.RData")
+plot.title <- "Poisson"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_pois.pdf", width = 8, height = 10)
+```
+
+FDR > Hochberg, closer to nominal level but overall conservative. 
+HD > QT7.
+ANOVAs perform well.
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+p_fdr_pois <- p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_pois.pdf", width = 8, height = 10)
+```
+
+HD dominates QT7.
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_pois.pdf", width = 8, height = 10)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_pois.pdf", width = 8, height = 10)
+```
+
+# Beta-binomial distributions: r=1
+
+```{r, eval=FALSE}
+set.seed(21)
+rseq_fp <- c(1,1,1,1)
+simres <- decinter_bb_sim(rseq=rseq_fp, s=s, nbin=nbin, qseq, nseq)
+save(simres, file = "./data/sim_fp_pval_bbr1.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_bbr1.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_bbr1.RData")
+load(file = "./data/sim_fp_fwer_bbr1.RData")
+plot.title <- "Beta-binomial (r=1)"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_bbr1.pdf", width = 8, height = 10)
+```
+
+FDR > Hochberg, closer to nominal level but overall conservative. 
+HD performs much better than QT7.
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_bbr1.pdf", width = 8, height = 10)
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_bbr1.pdf", width = 8, height = 10)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_bbr1.pdf", width = 8, height = 10)
+```
+
+# Beta-binomial distributions: r=9
+
+```{r, eval=FALSE}
+set.seed(21)
+rseq_fp <- c(9,9,9,9)
+simres <- decinter_bb_sim(rseq=rseq_fp, s=s, nbin=nbin, qseq, nseq)
+save(simres, file = "./data/sim_fp_pval_bbr9.RData")
+fwer <- decinter_fwer(simres)
+save(fwer, file = "./data/sim_fp_fwer_bbr9.RData")
+```
+
+## Results: FWER
+```{r, fig.height=7, fig.align='left'}
+load(file = "./data/sim_fp_pval_bbr9.RData")
+load(file = "./data/sim_fp_fwer_bbr9.RData")
+plot.title <- "Beta-binomial (r=9)"
+p <- plot_fp_fwer(fwer, simres, plot.title)
+p
+#ggsave(filename = "./figures/fig_fp_fwer_bbr9.pdf", width = 8, height = 10)
+```
+
+FDR a bit better than Hochberg, closer to nominal level but overall conservative.
+HD performs much better than QT7.  
+
+## Results: FWER - FDR only
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_fwer_fdr(fwer, simres, plot.title)
+p
+p_fdr_bbr9 <- p
+#ggsave(filename = "./figures/fig_fp_fwer_fdr_bbr9.pdf", width = 8, height = 10)
+```
+
+### FWER for the interaction at n=40
+
+```{r}
+todo <- 40
+n <- dim(fwer$AB.qt.fdr)[1] # total sample size
+qt.res <- binom.test(sum(fwer$AB.qt.fdr[,nseq==todo]), n, p = alpha.val)
+hd.res <- binom.test(sum(fwer$AB.hd.fdr[,nseq==todo]), n, p = alpha.val)
+```
+
+For the interaction, here is the FWER at n=`r todo` for the two quantile estimators, using FDR correction for multiple comparisons:
+
+- **HD** = `r round(hd.res$estimate, digits=3)` [`r round(hd.res$conf.int[1], digits=3)`, `r round(hd.res$conf.int[2], digits=3)`] 
+
+- **QT7** = `r round(qt.res$estimate, digits=3)` [`r round(qt.res$conf.int[1], digits=3)`, `r round(qt.res$conf.int[2], digits=3)`]
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7, fig.align='left'}
+p <- plot_fp_ind(simres, plot.title, alpha.val)
+p
+p_ind_bbr9 <- p
+#ggsave(filename = "./figures/fig_fp_ind_bbr9.pdf", width = 8, height = 10)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_fp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_ind_n_bbr9.pdf", width = 8, height = 10)
+```
+
+# Conclusion
+
+All methods tested are a bit too conservative. FDR gives FWER closer to nominal level than Hochberg across all conditions. FDR dominates QT7 in all situations. 
+Recommendation: use HD + FDR as default.
+
+# Make figures for article
+
+## FWER + FDR: normal + lognormal
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+pAB <- cowplot::plot_grid(p_fdr_norm + theme(legend.position='none'), 
+                          p_fdr_lnorm + theme(legend.position='none'),
+                          labels=c("A", "B"), 
+                          ncol = 2, 
+                          nrow = 1,
+                          rel_heights = c(1, 1), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h")
+
+pAB <- cowplot::plot_grid(pAB, legend,
+                          labels=c("", ""), 
+                          ncol = 1, 
+                          nrow = 2,
+                          rel_heights = c(1, 0.05), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h") 
+
+pAB
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_norm_lnorm.pdf',width=12,height=8) 
+```
+
+## FWER + FDR: Poisson + beta-binomial (r=9)
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+pAB <- cowplot::plot_grid(p_fdr_pois + theme(legend.position='none'), 
+                          p_fdr_bbr9 + theme(legend.position='none'),
+                          labels=c("A", "B"), 
+                          ncol = 2, 
+                          nrow = 1,
+                          rel_heights = c(1, 1), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h")
+
+pAB <- cowplot::plot_grid(pAB, legend,
+                          labels=c("", ""), 
+                          ncol = 1, 
+                          nrow = 2,
+                          rel_heights = c(1, 0.05), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h") 
+
+pAB
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_pois_bbr9.pdf',width=12,height=8) 
+```
+
+## Results at individual deciles: normal + beta-binomial (r=9)
+```{r, eval=FALSE, warning=FALSE}
+# legend <- get_legend(p_ind_norm)
+legend <- get_legend(p_ind_norm + guides(color = guide_legend(nrow = 3)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+cowplot::plot_grid(p_ind_norm + theme(legend.position='none'), 
+                   p_ind_bbr9 + theme(legend.position='none'),
+                   legend,
+                   NULL,
+                   labels=c("A", "B", "",  ""), 
+                   ncol = 2, 
+                   nrow = 2,
+                   rel_widths = c(1, 1), 
+                   rel_heights = c(1, 0.2),
+                   label_size = 20, 
+                   hjust = -0.5, 
+                   scale = 1,
+                   align = "h")
+
+# save figure
+ggsave(filename='./figures/fig_art_fp_ind_norm_bbr9.pdf',width=15,height=10) 
+```
+
+
+# References
+
+Benjamini, Y. & Hochberg, Y. (1995) Controlling the False Discovery Rate: A Practical and Powerful Approach to Multiple Testing. Journal of the Royal Statistical Society: Series B (Methodological), 57, 289–300.
+
+Bradley, J.V. (1978) Robustness? British Journal of Mathematical and Statistical Psychology, 31, 144–152.
+
+Harrell, F.E. & Davis, C.E. (1982) A new distribution-free quantile estimator. Biometrika, 69, 635–640.
+
+Hochberg, Y. (1988) A sharper Bonferroni procedure for multiple tests of significance. Biometrika, 75, 800–802.
+
+Hyndman, R.J. & Fan, Y. (1996) Sample Quantiles in Statistical Packages. The American Statistician, 50, 361.
+
+Wicklin, R. (2017) Sample quantiles: A comparison of 9 definitions; SAS Blog. https://blogs.sas.com/content/iml/2017/05/24/definitions-sample-quantiles.html
+
+Wilcox, R.R. (2017) Introduction to Robust Estimation and Hypothesis Testing, 4th edition. edn. Academic Press.
+
+Wilcox, R.R., Erceg-Hurn, D.M., Clark, F., & Carlson, M. (2014) Comparing two independent groups via the lower and upper quantiles. Journal of Statistical Computation and Simulation, 84, 1543–1551.
+

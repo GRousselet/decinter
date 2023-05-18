@@ -1,0 +1,559 @@
+---
+title: "Test main effects and interactions at all deciles: true positives"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+---
+
+Estimate familywise power = probability of at least one true positive among 9 deciles.
+Use percentile bootstrap with the same samples for all deciles. 
+Compare Harrell-Davis quantile estimator to quantile(type=7).
+Compare to standard ANOVA on means and 20% trimmed means (no bootstrap).
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(beepr)
+library(cowplot)
+source("./code/theme_gar.txt")
+source("./code/mainfuns.R")
+source("./code/plot.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/decinter_hdqt7.cpp")
+```
+
+# Parameters
+
+```{r}
+nsim <- 10000 # iterations
+nboot <- 2000 # bootstrap samples
+inc.step <- 500 # beep every inc.step iterations
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+ref.fp <- 1-(1-alpha.val)^nq # FWER for uncorrelated comparisons
+nseq <- seq(20, 100, 10) # sample sizes
+nmax <- max(nseq) # max sample size
+nn <- length(nseq) # number of sample sizes
+# Parameters for distributions with tied values
+# beta-binomial parameters
+nbin <- 10 # integers 0, 1,..., 10
+# r <- 9 # Wilcox et al. (2014) used 1, 2, 3, and 9
+s <- 9 # With r = s = 9 the distribution is bell-shaped and symmetric with mean 5.
+# with s=9, r=1, the distribution is heavily positively skewed.
+```
+
+# Normal distributions: mean differences
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+gpmeans <- c(0, 0.1, 0.2, 0.8)
+simres <- sim_mean_diff(rdist, gpmeans) 
+save(simres, file = "./data/sim_tp_pval_normal.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_normal.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+# default knitr size: {r, fig.width = 7, fig.width = 5}
+load(file = "./data/sim_tp_fwpr_normal.RData")
+load(file = "./data/sim_tp_pval_normal.RData")
+plot.title <- "Normal"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_normal.pdf", width = 8, height = 10)
+```
+
+**The ANOVA results are the same in the two columns.**
+Black horizontal line = 0.05.  
+Under normality ANOVA on means performs best. 
+FDR > Hochberg in all situations.
+HD is more powerful than QT7, which is easier to see in the next figure.
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+p_fdr_norm <- p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_normal.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_normal.pdf", width = 7, height = 6)
+```
+
+Under normality, strongest sensitivity in the middle of the distribution; power decays towards the tails.
+HD > QT7.
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_normal.pdf", width = 8, height = 10)
+```
+
+HD dominates QT7 at all sample sizes and quantiles.
+
+# Lognormal distributions: mean differences
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rlnorm
+gpmeans <- c(0, 0, 0.1, 0.5)
+simres <- sim_mean_diff(rdist, gpmeans)
+save(simres, file = "./data/sim_tp_pval_lognormal.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_lognormal.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_lognormal.RData")
+load(file = "./data/sim_tp_pval_lognormal.RData")
+plot.title <- "Lognormal"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_lognormal.pdf", width = 8, height = 10)
+```
+
+Lognormal distributions: power collapses for the ANOVAs, much more so when making inferences on means vs. 20% trimmed means. FDR only slightly better than Hochberg. Again HD dominates QT7.
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+p_fdr_lnorm <- p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_lognormal.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_lognormal.pdf", width = 7, height = 6)
+```
+
+Power is the strongest for $q_{0.1}$, to the left of the lognormal distributions, and decays toward the right tail.
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_lognormal.pdf", width = 8, height = 10)
+```
+
+Because of the positive skewness of the lognormal distribution, power is very unevenly distributed, with maximum power at the first decile dropping non-linearly to near the alpha level at the last decile.
+HD more powerful than QT7 in most situations. 
+
+## Check power at specific sample size or quantile
+
+```{r}
+# interaction, QT, first decile, n = 100
+mean(simres$AB.qt[,9,1]<alpha.val) # nsim, nn, 9 deciles
+
+# interaction, HD, first decile, n = 100
+mean(simres$AB.hd[,9,1]<alpha.val) # nsim, nn, 9 deciles
+```
+
+# Contaminated normal distributions: mean differences
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- cnorm
+# gpmeans <- c(0, 0.2, 0.2, 1)
+gpmeans <- c(0, 0.1, 0.2, 0.8)
+simres <- sim_mean_diff(rdist, gpmeans)
+save(simres, file = "./data/sim_tp_pval_cnorm.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_cnorm.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_cnorm.RData")
+load(file = "./data/sim_tp_pval_cnorm.RData")
+plot.title <- "Contaminated normal"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_cnorm.pdf", width = 8, height = 10)
+```
+Relative to normal distributions (same shifts were used), power drops for all methods, but dramatically more so for ANOVAs on means.  
+ANOVAs on trimmed means perform best. Clear FDR superiority over Hochberg.  
+Again HD > QT7.  
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_cnorm.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_cnorm.pdf", width = 7, height = 6)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_cnorm.pdf", width = 8, height = 10)
+```
+
+# Contaminated lognormal distributions: mean differences
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- clnorm
+# gpmeans <- c(0, 0.1, 0.2, 0.5)
+gpmeans <- c(0, 0, 0.1, 0.5)
+simres <- sim_mean_diff(rdist, gpmeans)
+save(simres, file = "./data/sim_tp_pval_clnorm.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_clnorm.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_clnorm.RData")
+load(file = "./data/sim_tp_pval_clnorm.RData")
+plot.title <- "Contaminated lognormal"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_clnorm.pdf", width = 8, height = 10)
+```
+
+Again, ANOVAs more affected. Power drops to alpha level for ANOVAs on means. FDR a bit better than Hochberg at lower sample sizes.
+
+## Check power at specific sample size or quantile
+
+```{r}
+# interaction, ANOVA on means, n = 100
+mean(simres$ANOVA.m[,9,3]<alpha.val) # nsim, nn, A/B/AB
+
+# interaction, ANOVA on 20% trimmed means, last decile, n = 100
+mean(simres$ANOVA.tm[,9,3]<alpha.val) # nsim, nn, A/B/AB
+
+# main effect A, ANOVA on means, n = 100
+mean(simres$ANOVA.m[,9,1]<alpha.val) # nsim, nn, A/B/AB
+
+# main effect B, ANOVA on means, n = 100
+mean(simres$ANOVA.m[,9,2]<alpha.val) # nsim, nn, A/B/AB
+```
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_clnorm.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_clnorm.pdf", width = 7, height = 6)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_clnorm.pdf", width = 8, height = 10)
+```
+
+# *g-and-h* distributions: skewness differences 
+
+Use *g-and-h* distributions to control skewness and the probability of outliers (Hoaglin, 1985).
+
+```{r, eval=FALSE}
+set.seed(21)
+gvals <- c(0.1, 0.1, 0.1, 1)
+hvals <- c(0, 0, 0, 0)
+simres <- sim_gh_diff(gvals, hvals) # sim_mean_diff
+save(simres, file = "./data/sim_tp_pval_gh.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_gh.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_gh.RData")
+load(file = "./data/sim_tp_pval_gh.RData")
+plot.title <- "g-and-h distributions"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_gh.pdf", width = 8, height = 10)
+```
+
+ANOVA on trimmed means performs very poorly because the distributions do not differ in medians. The ANOVA on means performs well because of its lack of robustness: the mean is pooled by the large skewness in one condition.
+HD outperforms QT7. FDR slightly better than Hochberg.  
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_gh.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_gh.pdf", width = 7, height = 6)
+```
+
+By design, the distributions have the same median, so power is at the alpha level for $q_{0.5}$, rising towards the tails.  
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_gh.pdf", width = 8, height = 10)
+```
+
+# g-and-h distributions: skewness differences + outliers
+
+Same situation as in previous simulation, but now $h=0.1$, increasing the probability of outliers.
+
+```{r, eval=FALSE}
+set.seed(21)
+gvals <- c(0.1, 0.1, 0.1, 1)
+hvals <- c(0.1, 0.1, 0.1, 0.1)
+simres <- sim_gh_diff(gvals, hvals) # sim_mean_diff
+save(simres, file = "./data/sim_tp_pval_gho.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_gho.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_gho.RData")
+load(file = "./data/sim_tp_pval_gho.RData")
+plot.title <- "g-and-h distributions + outliers"
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_gho.pdf", width = 8, height = 10)
+```
+
+Again, ANOVA on means dominates. Power affected by increased probability of outliers for all methods.
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_gho.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_gho.pdf", width = 7, height = 6)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_gho.pdf", width = 8, height = 10)
+```
+
+# Beta-binomial distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rseq_tp <- c(5.5, 5.5, 5.5, 9)
+simres <- decinter_bb_sim(rseq = rseq_tp, s, nbin, qseq, nseq) 
+save(simres, file = "./data/sim_tp_pval_bb.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_bb.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_bb.RData")
+load(file = "./data/sim_tp_pval_bb.RData")
+plot.title <- "Beta-binomial" # skewness difference
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_bb.pdf", width = 8, height = 10)
+```
+
+Again, ANOVA on means dominates. 
+FDR > Hochberg.  
+HD much more powerful than QT7.  
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+p_fdr_bb <- p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_bb.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_bb.pdf", width = 7, height = 6)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_bb.pdf", width = 8, height = 10)
+```
+
+# Poisson distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+lambda_tp <- c(7,7,7,9) # Poisson population -- true positives
+simres <- decinter_pois_sim(lambda_tp, qseq) 
+save(simres, file = "./data/sim_tp_pval_pois.RData")
+fwpr <- decinter_fwer(simres)
+save(fwpr, file = "./data/sim_tp_fwpr_pois.RData")
+```
+
+## Results: FWPR
+```{r, fig.height=7}
+load(file = "./data/sim_tp_fwpr_pois.RData")
+load(file = "./data/sim_tp_pval_pois.RData")
+plot.title <- "Poisson" # skewness difference
+p <- plot_tp_fwpr(fwpr, simres, alpha.val, plot.title)
+p
+#ggsave(filename = "./figures/fig_tp_fwpr_pois.pdf", width = 8, height = 10)
+```
+
+Again, ANOVA on means dominates. Two ANOVA tests more powerful than decile approach.  
+FDR > Hochberg.  
+HD much more powerful than QT7.  
+
+## Results: FWPR - FDR only
+```{r, fig.height=7}
+p <- plot_tp_fwpr_fdr(fwpr, simres, alpha.val, plot.title)
+p
+p_fdr_pois <- p
+#ggsave(filename = "./figures/fig_tp_fwpr_fdr_pois.pdf", width = 8, height = 10)
+```
+
+## Results: individual deciles
+
+### Plot by quantile method
+```{r, fig.height=7}
+p <- plot_tp_ind(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_pois.pdf", width = 7, height = 6)
+```
+
+### Plot by sample size
+```{r, fig.height=10, fig.width=8}
+p <- plot_tp_ind_n(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_tp_ind_n_pois.pdf", width = 8, height = 10)
+```
+
+# Conclusion
+
+Overall, no method dominates: situations are found in which ANOVA on means outperforms quantile methods; in other situations power for ANOVA on means collapses while quantile methods retain high power. FDR performs better or as well as Hochberg in all situations. HD is always more powerful than QT7, especially when dealing with tied values.  
+Recommend to use HD + FDR by default.  
+
+# Make figures for article
+
+## FWER + FDR: normal + lognormal
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+pAB <- cowplot::plot_grid(p_fdr_norm + theme(legend.position='none'), 
+                          p_fdr_lnorm + theme(legend.position='none'),
+                          labels=c("A", "B"), 
+                          ncol = 2, 
+                          nrow = 1,
+                          rel_heights = c(1, 1), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h")
+
+pAB <- cowplot::plot_grid(pAB, legend,
+                          labels=c("", ""), 
+                          ncol = 1, 
+                          nrow = 2,
+                          rel_heights = c(1, 0.05), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h") 
+
+pAB
+
+# save figure
+ggsave(filename='./figures/fig_art_tp_norm_lnorm.pdf',width=12,height=8) 
+```
+
+## FWER + FDR: Poisson + beta-binomial
+```{r, eval=FALSE, warning=FALSE}
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+
+pAB <- cowplot::plot_grid(p_fdr_pois + theme(legend.position='none'), 
+                          p_fdr_bb + theme(legend.position='none'),
+                          labels=c("A", "B"), 
+                          ncol = 2, 
+                          nrow = 1,
+                          rel_heights = c(1, 1), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h")
+
+pAB <- cowplot::plot_grid(pAB, legend,
+                          labels=c("", ""), 
+                          ncol = 1, 
+                          nrow = 2,
+                          rel_heights = c(1, 0.05), 
+                          label_size = 20, 
+                          hjust = -0.5, 
+                          scale = 0.95,
+                          align = "h") 
+
+pAB
+
+# save figure
+ggsave(filename='./figures/fig_art_tp_pois_bb.pdf',width=12,height=8) 
+```
+
+# References
+
+Hoaglin, D.C. (1985) Summarizing Shape Numerically: The g-and-h Distributions. In Exploring Data Tables, Trends, and Shapes. John Wiley & Sons, Ltd, pp. 461–513.
+

@@ -1,0 +1,84 @@
+---
+title: "Illustration of the beta weights used to compute the Harrell-Davis estimates of the deciles"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+The Harrell-Davis quantile estimator works by taking the sum of all the ordered statistics multiplied by a beta distribution of weights. 
+
+# Dependencies
+```{r}
+library(tibble)
+library(ggplot2)
+source('./code/theme_gar.txt')
+```
+
+# Implementation
+```{r}
+hd <- function(x,q=.5,na.rm=TRUE,STAND=NULL,tr=FALSE){
+#
+#  Compute the Harrell-Davis estimate of the qth quantile
+#
+#  The vector x contains the data,
+#  and the desired quantile is q
+#  The default value for q is .5.
+#
+if(tr)e=thd(x,q=q)
+else{
+if(na.rm)x=elimna(x)
+n<-length(x)
+m1<-(n+1)*q
+m2<-(n+1)*(1-q)
+vec<-seq(along=x)
+w<-pbeta(vec/n,m1,m2)-pbeta((vec-1)/n,m1,m2)  # W sub i values
+y<-sort(x)
+e<-sum(w*y)
+}
+e
+}
+```
+
+# Illustration of the beta weights for the deciles
+
+## Compute beta weights
+```{r}
+n <- 50
+qseq <- seq(0.1,0.9,0.1)
+betares <- matrix(data = NA, nrow = 9, ncol = n)
+for(Q in 1:9){
+  m1 <- (n+1)*qseq[Q]
+  m2 <- (n+1)*(1-qseq[Q])
+  vec <- 1:n
+  betares[Q,] <- pbeta(vec/n,m1,m2)-pbeta((vec-1)/n,m1,m2)  
+}
+```
+
+## Make figure
+```{r}
+df <- tibble(x = rep(vec, each = 9),
+             y = as.vector(betares),
+             Deciles = factor(rep(qseq, n))
+             )
+
+ggplot(df, aes(x=x, y=y)) + theme_gar +
+  geom_line(aes(colour=Deciles), linewidth = 1) +
+  scale_colour_viridis_d(end=0.9) +
+  scale_x_continuous(breaks = vec, 
+                     labels = c(1,rep("",8),10,rep("",9),20,rep("",9),30,rep("",9),40,rep("",9),50)) +
+  theme(#axis.ticks.y = element_blank(),
+        #axis.text.y = element_blank(),
+        panel.grid = element_blank()) +
+  xlab("Order statistics") + 
+  ylab("Beta weights")
+  
+#ggsave(filename = "./figures/fig_art_hd_beta_weights.pdf", width = 8, height = 5)
+```
+
+

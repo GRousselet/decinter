@@ -1,0 +1,173 @@
+---
+title: "Quantile differences between distributions of all pairwise differences: false positives, boot1 vs. boot9"
+author: "Rand R. Wilcox & Guillaume A. Rousselet"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    fig_caption: no
+    number_sections: no
+    toc: yes
+    toc_depth: 2
+    fig_width: 8 
+---
+
+Strategy: for each level of A, compute all pairwise differences between B1 and B2. Then compare the quantiles (here deciles) of these two distributions. 
+
+Estimate FWER = probability of at least one false negative among 9 deciles.
+Use HD only; compare bootstrap with the same samples for all deciles vs. different samples. Do that for one sample size only. With n=40, the distribution of all pairwise differences = 1600 observations!
+
+# Dependencies
+
+```{r, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(tibble)
+library(beepr)
+source("./code/theme_gar.txt")
+source("./code/mainfuns.R")
+source("./code/plot.R")
+# Compile C++ code:
+library(Rcpp)
+sourceCpp("./code/apdinter_b1b9.cpp")
+```
+
+# Parameters
+
+```{r}
+nsim <- 10000 # iterations
+nboot <- 2000 # bootstrap samples
+inc.step <- 500 # console update every inc.step iterations
+qseq <- seq(0.1, 0.9, 0.1)
+nq <- length(qseq)
+alpha.val <- 0.05
+ref.fp <- 1-(1-alpha.val)^nq # FWER for uncorrelated comparisons
+n <- 40 # unique sample size
+# pre-compute the beta weights
+hd.w <- hd.w.calc(n*n, qseq)
+hd.w <- hd.w[[1]] # one sample size only -- extract here
+```
+
+# Normal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rnorm
+simres <- apdinter_b1b9_sim(rdist, n, hd.w)
+save(simres, file = "./data/sim_fp_apd_pval_normal_b1b9.RData")
+fwer <- apdinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_normal_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_normal_b1b9.RData")
+b1.bt <- binom.test(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), p = alpha.val)
+b9.bt <- binom.test(sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr), p = alpha.val)
+binodiff <- bi2KMSv2(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr))
+```
+
+FWER: boot1 = `r round(b1.bt$estimate, digits=3)` [`r round(b1.bt$conf.int[1], digits=3)`, `r round(b1.bt$conf.int[2], digits=3)`]; boot9 = `r round(b9.bt$estimate, digits=3)` [`r round(b9.bt$conf.int[1], digits=3)`, `r round(b9.bt$conf.int[2], digits=3)`]; difference = `r round(binodiff$est.dif, digits=3)` [`r round(binodiff$ci[1], digits=3)`, `r round(binodiff$ci[2], digits=3)`], *p* = `r binodiff$p.value`.
+
+## Results: individual deciles
+```{r}
+load(file = "./data/sim_fp_apd_pval_normal_b1b9.RData")
+plot.title <- "Normal"
+p <- plot_fp_apd_ind_b1b9(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_normal_b1b9_test.pdf", width = 8, height = 10)
+```
+
+# Lognormal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- rlnorm
+simres <- apdinter_b1b9_sim(rdist, n, hd.w)
+save(simres, file = "./data/sim_fp_apd_pval_lognormal_b1b9.RData")
+fwer <- apdinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_lognormal_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_lognormal_b1b9.RData")
+b1.bt <- binom.test(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), p = alpha.val)
+b9.bt <- binom.test(sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr), p = alpha.val)
+binodiff <- bi2KMSv2(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr))
+```
+
+FWER: boot1 = `r round(b1.bt$estimate, digits=3)` [`r round(b1.bt$conf.int[1], digits=3)`, `r round(b1.bt$conf.int[2], digits=3)`]; boot9 = `r round(b9.bt$estimate, digits=3)` [`r round(b9.bt$conf.int[1], digits=3)`, `r round(b9.bt$conf.int[2], digits=3)`]; difference = `r round(binodiff$est.dif, digits=3)` [`r round(binodiff$ci[1], digits=3)`, `r round(binodiff$ci[2], digits=3)`], *p* = `r binodiff$p.value`.
+
+## Results: individual deciles
+```{r}
+load(file = "./data/sim_fp_apd_pval_lognormal_b1b9.RData")
+plot.title <- "Lognormal"
+p <- plot_fp_apd_ind_b1b9(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_lognormal_b1b9_test.pdf", width = 8, height = 10)
+```
+
+# Contaminated normal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- cnorm
+simres <- apdinter_b1b9_sim(rdist, n, hd.w)
+save(simres, file = "./data/sim_fp_apd_pval_cnorm_b1b9.RData")
+fwer <- apdinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_cnorm_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_cnorm_b1b9.RData")
+b1.bt <- binom.test(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), p = alpha.val)
+b9.bt <- binom.test(sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr), p = alpha.val)
+binodiff <- bi2KMSv2(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr))
+```
+
+FWER: boot1 = `r round(b1.bt$estimate, digits=3)` [`r round(b1.bt$conf.int[1], digits=3)`, `r round(b1.bt$conf.int[2], digits=3)`]; boot9 = `r round(b9.bt$estimate, digits=3)` [`r round(b9.bt$conf.int[1], digits=3)`, `r round(b9.bt$conf.int[2], digits=3)`]; difference = `r round(binodiff$est.dif, digits=3)` [`r round(binodiff$ci[1], digits=3)`, `r round(binodiff$ci[2], digits=3)`], *p* = `r binodiff$p.value`.
+
+## Results: individual deciles
+```{r}
+load(file = "./data/sim_fp_apd_pval_cnorm_b1b9.RData")
+plot.title <- "Contaminated normal"
+p <- plot_fp_apd_ind_b1b9(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_cnorm_b1b9_test.pdf", width = 8, height = 10)
+```
+
+# Contaminated lognormal distributions
+
+```{r, eval=FALSE}
+set.seed(21)
+rdist <- clnorm
+simres <- apdinter_b1b9_sim(rdist, n, hd.w)
+save(simres, file = "./data/sim_fp_apd_pval_clnorm_b1b9.RData")
+fwer <- apdinter_b1b9_fwer(simres)
+save(fwer, file = "./data/sim_fp_apd_fwer_clnorm_b1b9.RData")
+```
+
+## Results: FWER
+```{r}
+load(file = "./data/sim_fp_apd_fwer_clnorm_b1b9.RData")
+b1.bt <- binom.test(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), p = alpha.val)
+b9.bt <- binom.test(sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr), p = alpha.val)
+binodiff <- bi2KMSv2(sum(fwer$AB.b1.fdr), length(fwer$AB.b1.fdr), sum(fwer$AB.b9.fdr), length(fwer$AB.b9.fdr))
+```
+
+FWER: boot1 = `r round(b1.bt$estimate, digits=3)` [`r round(b1.bt$conf.int[1], digits=3)`, `r round(b1.bt$conf.int[2], digits=3)`]; boot9 = `r round(b9.bt$estimate, digits=3)` [`r round(b9.bt$conf.int[1], digits=3)`, `r round(b9.bt$conf.int[2], digits=3)`]; difference = `r round(binodiff$est.dif, digits=3)` [`r round(binodiff$ci[1], digits=3)`, `r round(binodiff$ci[2], digits=3)`], *p* = `r binodiff$p.value`.
+
+## Results: individual deciles
+```{r}
+load(file = "./data/sim_fp_apd_pval_clnorm_b1b9.RData")
+plot.title <- "Contaminated lognormal"
+p <- plot_fp_apd_ind_b1b9(simres, plot.title, alpha.val)
+p
+#ggsave(filename = "./figures/fig_fp_apd_ind_clnorm_b1b9_test.pdf", width = 8, height = 10)
+```
+
+# Conclusion
+No evidence for better performance using separate bootstrap samples for every decile.
+Keep using the same bootstrap samples for all deciles for computational efficiency.
+Overall the approach is conservative for all distributions. Looking at individual deciles, we're closer to the nominal level nearer the centre of the distribution, a bit conservative at the extremes, but overall close to 0.05.
+
