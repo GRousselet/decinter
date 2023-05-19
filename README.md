@@ -4,8 +4,7 @@ Rand R. Wilcox & Guillaume A. Rousselet
 Preprint = <URL>  
 
 Code to reproduce the figures, analyses and simulations in the article.
-The data, knitted notebooks and figures in pdf format are available here:
-DOI: 10.6084/m9.figshare.22927520
+The data, knitted notebooks and figures in pdf format are available on [figshare](https://doi.org/10.6084/m9.figshare.22927520.v1).  
 
 The main functions are illustrated in the notebook `examples.Rmd`. 
 
