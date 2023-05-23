@@ -1,7 +1,7 @@
 # **Code for article A Quantile Shift Approach To Main Effects And Interactions In A 2-By-2 Design**
 Rand R. Wilcox & Guillaume A. Rousselet  
 (submitted)  
-Preprint = <URL>  
+[Preprint](http://arxiv.org/abs/2305.12366)  
 
 Code to reproduce the figures, analyses and simulations in the article.
 The data, knitted notebooks and figures in pdf format are available on [figshare](https://doi.org/10.6084/m9.figshare.22927520.v1).  
