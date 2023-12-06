@@ -1,5 +1,50 @@
 # Code used in examples.Rmd
 
+
+wmwpb<-function(x,y=NULL,est=median,alpha=.05,nboot=2000,SEED=TRUE,pr=TRUE,
+                na.rm=TRUE,...){
+  #
+  #   Compute a bootstrap confidence interval for a
+  #   measure of location associated with
+  #   the distribution of x-y,
+  #   est indicates which measure of location will be used
+  #   x and y are possibly dependent
+  #
+  #   loc2dif.ci  computes a non-bootstrap confidence interval
+  #
+  if(is.null(y[1])){
+    if(!is.matrix(x) & !is.data.frame(x))stop('With y missing, x should be a matrix')
+    y=x[,2]
+    x=x[,1]
+  }
+  if(SEED)set.seed(2) # set seed of random number generator so that
+  #             results can be duplicated.
+  data1<-matrix(sample(length(x),size=length(x)*nboot,replace=TRUE),nrow=nboot)
+  data2<-matrix(sample(length(y),size=length(y)*nboot,replace=TRUE),nrow=nboot)
+  bvec<-NA
+  for(i in 1:nboot)bvec[i]<-wmwloc(x[data1[i,]],y[data2[i,]],est=est,na.rm=na.rm,...)
+  bvec<-sort(bvec)
+  low<-round((alpha/2)*nboot)+1
+  up<-nboot-low
+  temp<-sum(bvec<0)/nboot+sum(bvec==0)/(2*nboot)
+  sig.level<-2*(min(temp,1-temp))
+  estdiff=wmwloc(x,y,est=est,na.rm=na.rm,...)
+  list(estimate=estdiff,ci=c(bvec[low],bvec[up]),p.value=sig.level)
+}
+
+wmwloc<-function(x,y,na.rm=TRUE,est=median,...){
+  #
+  # Estimate the median of the distribution of x-y
+  #
+  if(na.rm){
+    x<-x[!is.na(x)]
+    y<-y[!is.na(y)]
+  }
+  m<-outer(x,y,FUN="-")
+  est=est(m,na.rm=TRUE,...)
+  est
+}
+
 # Compute p values
 bootpval <- function(bootdist){
   # bootdist = nboot x quantile matrix

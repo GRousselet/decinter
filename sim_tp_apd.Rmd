@@ -10,7 +10,7 @@ output:
     toc_depth: 2
 ---
 
-Estimate familywise power = probability of at least one true positive among 9 deciles.
+Estimate power = probability of at least one true positive among 9 deciles.
 Use percentile bootstrap with the same samples for all deciles. 
 Compare HD to QT7.  
 Compare to standard ANOVA on means and 20% trimmed means (no bootstrap).
@@ -50,18 +50,6 @@ s <- 9 # With r = s = 9 the distribution is bell-shaped and symmetric with mean 
 # with s=9, r=1, the distribution is heavily positively skewed.
 ```
 
-For the normal distribution, the groups were sampled from populations with means: $A_1B_1$ = 0, $A_1B_2$ = 0.1, $A_2B_1$ = 0.2, $A_2B_2$ = 0.9. 
-
-Lognormal: $A_1B_1$ = 0, $A_1B_2$ = 0, $A_2B_1$ = 0, $A_2B_2$ = 0.7. 
-
-Contaminated normal: $A_1B_1$ = 0, $A_1B_2$ = 0.1, $A_2B_1$ = 0.2, $A_2B_2$ = 0.9. 
-
-Contaminated lognormal: $A_1B_1$ = 0, $A_1B_2$ = 0, $A_2B_1$ = 0, $A_2B_2$ = 0.7. 
-
-Poisson: $A_1B_1$ = 7, $A_1B_2$ = 7, $A_2B_1$ = 7, $A_2B_2$ = 9. 
-
-Beta-binomial: all groups had 10 bins, s = 9, and r was set to $A_1B_1$ = 5.5, $A_1B_2$ = 5.5, $A_2B_1$ = 5.5, $A_2B_2$ = 9.
-
 # Normal distributions: mean differences
 
 ```{r, eval=FALSE}
@@ -75,7 +63,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_normal.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_normal.RData")
 load(file = "./data/sim_tp_apd_pval_normal.RData")
@@ -86,7 +74,7 @@ p_fdr_norm <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_normal.pdf")
 ```
 
-Under normality ANOVA on means performs best, followed by ANOVA on trimmed means and finally apd quantile method. HD and QT7 methods give very similar results.  
+Under normality ANOVA on means performs best, followed by ANOVA on trimmed means and finally apd quantile method.
 
 ## Results: individual deciles
 
@@ -119,7 +107,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_lognormal.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_lognormal.RData")
 load(file = "./data/sim_tp_apd_pval_lognormal.RData")
@@ -130,7 +118,7 @@ p_fdr_lnorm <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_lognormal.pdf")
 ```
 
-Lognormal distributions: power is low for the ANOVAs relative to the bootstrap methods, and much more so when making inferences on means vs. trimmed means. Quantile method most powerful for n>40.
+Lognormal distributions: power collapses for the ANOVAs, much more so when making inferences on means vs. trimmed means. Quantile method most powerful for n>40.
 
 ## Results: individual deciles
 
@@ -163,18 +151,18 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_cnorm.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_cnorm.RData")
 load(file = "./data/sim_tp_apd_pval_cnorm.RData")
-plot.title <- "Contaminated normal"
+plot.title <- "Mixed normal"
 p <- plot_tp_apd_fwpr(fwpr, simres, alpha.val, plot.title)
 p
 p_fdr_cnorm <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_cnorm.pdf")
 ```
 
-Again, very poor performance of the ANOVA on means, but now ANOVA on trimmed means dominates the bootstrap methods.
+Again, very poor performance of the ANOVA on means, but now ANOVA on trimmed means dominates.
 
 ## Results: individual deciles
 
@@ -205,18 +193,18 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_clnorm.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_clnorm.RData")
 load(file = "./data/sim_tp_apd_pval_clnorm.RData")
-plot.title <- "Contaminated lognormal"
+plot.title <- "Mixed lognormal"
 p <- plot_tp_apd_fwpr(fwpr, simres, alpha.val, plot.title)
 p
 p_fdr_clnorm <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_clnorm.pdf")
 ```
 
-Quantile method most powerful.
+Quantile method most powerful but power is overall low.
 
 ## Results: individual deciles
 
@@ -247,7 +235,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_gh.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_gh.RData")
 load(file = "./data/sim_tp_apd_pval_gh.RData")
@@ -257,7 +245,7 @@ p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_gh.pdf")
 ```
 
-ANOVA on means dominates. Similarly to what we saw in `sim_tp.Rmd`, the ANOVA on trimmed means performs extremely poorly because the *g-and-h* distributions have median zero. On the other hand, the mean's lack of robustness to skewness works to its advantage.
+ANOVA on means dominates.
 
 ## Results: individual deciles
 
@@ -290,7 +278,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_gho.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_gho.RData")
 load(file = "./data/sim_tp_apd_pval_gho.RData")
@@ -330,7 +318,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_bb.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_bb.RData")
 load(file = "./data/sim_tp_apd_pval_bb.RData")
@@ -341,7 +329,7 @@ p_fdr_bb <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_bb.pdf")
 ```
 
-ANOVA on means dominates, followed by ANOVA on trimmed means. The bootstrap method using HD is close to ANOVA on trimmed means. The bootstrap method using QT7 has much lower power. 
+ANOVA on means dominates.
 
 ## Results: individual deciles
 
@@ -371,7 +359,7 @@ save(fwpr, file = "./data/sim_tp_apd_fwpr_pois.RData")
 ```
 
 ## Results: FWPR
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=6, fig.height=5}
 # default knitr size: {r, fig.width = 7, fig.width = 5}
 load(file = "./data/sim_tp_apd_fwpr_pois.RData")
 load(file = "./data/sim_tp_apd_pval_pois.RData")
@@ -382,7 +370,7 @@ p_fdr_pois <- p
 #ggsave(filename = "./figures/fig_tp_apd_fwpr_pois.pdf")
 ```
 
-ANOVA on means dominates again. Now bootstrap + HD gives very similar results to ANOVA on trimmed means. Again QT7 has low power.
+ANOVA on means dominates.
 
 ## Results: individual deciles
 
@@ -402,7 +390,7 @@ p
 
 # Conclusion
 
-No method dominates. In some situations ANOVA on means outperforms the others, yet in other situations, power completely collapses for the ANOVA on means but not for the quantile method. HD and QT7 perform similarly for continuous distributions, but in the presence of tied values, HD dominates QT7.  
+No method dominates. In some situations ANOVA on means outperforms the others, yet in other situations, power completely collapses for the ANOVA on means but not for the quantile method.
 
 # Make figures for article
 
@@ -411,7 +399,7 @@ No method dominates. In some situations ANOVA on means outperforms the others, y
 Use all distributions except g-and-h for consistency with other notebooks. So we have 6 sets of results that can fit in a 3 x 2 figure.
 
 ```{r, eval=FALSE, warning=FALSE}
-legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 2)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
+legend <- get_legend(p_fdr_norm + guides(color = guide_legend(nrow = 1)) + theme(legend.position = "bottom", legend.box.margin = margin(0, 0, 0, 0)))
 
 pAB <- cowplot::plot_grid(p_fdr_norm + theme(legend.position='none'), 
                           p_fdr_lnorm + theme(legend.position='none'),

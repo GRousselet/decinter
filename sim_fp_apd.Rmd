@@ -173,6 +173,8 @@ p
 
 # Contaminated normal distributions
 
+Called mixed distributions in the article.
+
 ```{r, eval=FALSE}
 set.seed(21)
 rdist <- cnorm
@@ -185,7 +187,7 @@ save(fwer, file = "./data/sim_fp_apd_fwer_cnorm.RData")
 ## Results: FWER
 ```{r}
 load(file = "./data/sim_fp_apd_fwer_cnorm.RData")
-plot.title <- "Contaminated normal"
+plot.title <- "Mixed normal"
 p <- plot_fp_apd_fwer(fwer, plot.title)
 p
 #ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_cnorm.pdf", width = 8, height = 10)
@@ -244,7 +246,7 @@ save(fwer, file = "./data/sim_fp_apd_fwer_clnorm.RData")
 ## Results: FWER
 ```{r}
 load(file = "./data/sim_fp_apd_fwer_clnorm.RData")
-plot.title <- "Contaminated lognormal"
+plot.title <- "Mixed lognormal"
 p <- plot_fp_apd_fwer(fwer, plot.title)
 p
 #ggsave(filename = "./figures/fig_fp_apd_fwer_fdr_clnorm.pdf", width = 8, height = 10)
@@ -513,7 +515,7 @@ pAB
 ggsave(filename='./figures/fig_art_fp_apd.pdf',width=10,height=12) 
 ```
 
-## Results at individual deciles: normal + contamined lognormal
+## Results at individual deciles: normal + contaminated lognormal
 ```{r, eval=FALSE, warning=FALSE}
 legend <- get_legend(p_ind_norm)
 

@@ -1,6 +1,6 @@
 # **Code for article A Quantile Shift Approach To Main Effects And Interactions In A 2-By-2 Design**
 Rand R. Wilcox & Guillaume A. Rousselet  
-(submitted)  
+(in press at [Methodology](https://meth.psychopen.eu/index.php/meth))  
 [Preprint](http://arxiv.org/abs/2305.12366)  
 
 Code to reproduce the figures, analyses and simulations in the article.
@@ -94,7 +94,7 @@ Illustrate the beta weights used to compute the Harrell-Davis quantile estimates
 Demonstrate that when dealing with distributions of all pairwise differences, interchanging the rows and columns can yield different interaction results.  
 
 **`kurtosis_estimation.Rmd`**  
-Estimate the kurtosis of samples from a lognormal distribution and a contaminated lognormal distribution.  
+Estimate the kurtosis of samples from a lognormal distribution and a contaminated lognormal distribution (called a mixed distribution in the article).  
 
 **`examples.Rmd`**  
 Illustrate distributions used in the power simulations. Generate samples at maximum sample size. Plot marginals, shift functions for main effects and interaction, distributions of all pairwise differences, their quantiles, and their quantile differences (interaction).
@@ -104,7 +104,19 @@ Illustrate health example presented in the article.
 - fig_ex_A1B1C_dec.pdf = Figure 11  
 - fig_ex_A1B1C_apd.pdf = Figure 12  
 
+## Notebooks needed to reproduce the figures
 
-
-
-
+| Figure | Notebook |
+| ----- | ----- |
+| Figure 1 | hd.Rmd |
+| Figure 2 | sim_fp.Rmd |
+| Figure 3 | sim_fp.Rmd |
+| Figure 4 | sim_fp.Rmd |
+| Figure 5 | sim_tp.Rmd |
+| Figure 6 | sim_tp.Rmd |
+| Figure 7 | sim_fp_apd.Rmd |
+| Figure 8 | sim_fp_apd.Rmd |
+| Figure 9 | sim_fp_apd.Rmd |
+| Figure 10 | sim_tp_apd.Rmd |
+| Figure 11 | examples.Rmd |
+| Figure 12 | examples.Rmd |

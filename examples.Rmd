@@ -351,7 +351,8 @@ res <- dec_apd_all_wrap(a, nboot, probs)
 
 ```{r}
 set.seed(21)
-pA <- plot_marg(a, res, col = "black") + coord_cartesian(ylim = c(0, 65))
+pA <- plot_marg(a, res, col = "black") + coord_cartesian(ylim = c(0, 65)) +
+        labs(y = "Perceived health scores")
 pA
 ```
 
