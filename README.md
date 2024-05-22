@@ -1,6 +1,6 @@
 # **Code for article A Quantile Shift Approach To Main Effects And Interactions In A 2-By-2 Design**
 Rand R. Wilcox & Guillaume A. Rousselet  
-(in press at [Methodology](https://meth.psychopen.eu/index.php/meth))  
+[Article](https://meth.psychopen.eu/index.php/meth/article/view/12271)
 [Preprint](http://arxiv.org/abs/2305.12366)  
 
 Code to reproduce the figures, analyses and simulations in the article.
